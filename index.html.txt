@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Raf Simons Flappy Shoe</title>
+    <style>
+        body {
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background: black;
+            touch-action: manipulation;
+        }
+        
+        #gameCanvas {
+            border: 2px solid white;
+            background: #333;
+        }
+
+        #score {
+            position: fixed;
+            top: 20px;
+            color: white;
+            font-family: Arial;
+            font-size: 24px;
+        }
+    </style>
+</head>
+<body>
+    <div id="score">Score: 0</div>
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreElement = document.getElementById('score');
+
+        // Game settings
+        canvas.width = 360;
+        canvas.height = 640;
+        const GRAVITY = 0.5;
+        let score = 0;
+
+        // Game elements
+        const shoe = {
+            x: 50,
+            y: canvas.height / 2,
+            velocity: 0,
+            width: 40,
+            height: 30
+        };
+
+        // Images (замените ссылки на свои изображения)
+        const background = new Image();
+        background.src = 'raf_simons_face.jpg'; // Фон
+        
+        const shoeImg = new Image();
+        shoeImg.src = 'raf_shoe.png'; // Кроссовок с крыльями
+
+        // Трубы
+        const tubes = [];
+        const TUBE_WIDTH = 60;
+        const TUBE_GAP = 150;
+        const TUBE_SPEED = 2;
+
+        // Управление
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') jump();
+        });
+        
+        document.addEventListener('click', jump);
+
+        function jump() {
+            shoe.velocity = -10;
+        }
+
+        // Создание труб
+        function createTube() {
+            const minHeight = 50;
+            const maxHeight = canvas.height - TUBE_GAP - minHeight;
+            const height = Math.floor(Math.random() * (maxHeight - minHeight)) + minHeight;
+            
+            tubes.push({
+                x: canvas.width,
+                height: height,
+                passed: false
+            });
+        }
+
+        // Проверка столкновений
+        function checkCollision(rect1, rect2) {
+            return rect1.x < rect2.x + rect2.width &&
+                   rect1.x + rect1.width > rect2.x &&
+                   rect1.y < rect2.y + rect2.height &&
+                   rect1.y + rect1.height > rect2.y;
+        }
+
+        // Игровой цикл
+        function gameLoop() {
+            // Обновление позиции
+            shoe.velocity += GRAVITY;
+            shoe.y += shoe.velocity;
+
+            // Обновление труб
+            if (tubes.length === 0 || tubes[tubes.length - 1].x < canvas.width - 200) {
+                createTube();
+            }
+
+            tubes.forEach((tube, index) => {
+                tube.x -= TUBE_SPEED;
+
+                // Обновление счета
+                if (!tube.passed && tube.x + TUBE_WIDTH < shoe.x) {
+                    tube.passed = true;
+                    score++;
+                    scoreElement.textContent = `Score: ${score}`;
+                }
+
+                // Проверка столкновений
+                const upperTube = { 
+                    x: tube.x, 
+                    y: 0, 
+                    width: TUBE_WIDTH, 
+                    height: tube.height 
+                };
+                
+                const lowerTube = { 
+                    x: tube.x, 
+                    y: tube.height + TUBE_GAP, 
+                    width: TUBE_WIDTH, 
+                    height: canvas.height - tube.height - TUBE_GAP 
+                };
+
+                if (checkCollision(shoe, upperTube) || checkCollision(shoe, lowerTube)) {
+                    alert('Game Over! Score: ' + score);
+                    location.reload();
+                }
+
+                // Удаление старых труб
+                if (tube.x + TUBE_WIDTH < 0) {
+                    tubes.splice(index, 1);
+                }
+            });
+
+            // Отрисовка
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Фон
+            ctx.drawImage(background, 0, 0, canvas.width, canvas.height);
+            
+            // Трубы
+            ctx.fillStyle = '#4CAF50';
+            tubes.forEach(tube => {
+                ctx.fillRect(tube.x, 0, TUBE_WIDTH, tube.height);
+                ctx.fillRect(tube.x, tube.height + TUBE_GAP, TUBE_WIDTH, canvas.height - tube.height - TUBE_GAP);
+            });
+
+            // Кроссовок
+            ctx.drawImage(shoeImg, shoe.x, shoe.y, shoe.width, shoe.height);
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Старт игры
+        background.onload = gameLoop;
+    </script>
+</body>
+</html>
