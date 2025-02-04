@@ -3,112 +3,210 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Flappy Shoe</title>
+    <title>Raf Simons Ozweego Flappy Game</title>
     <style>
         body {
             margin: 0;
             overflow: hidden;
-            background: url('raf_simons_face.jpg') no-repeat center center/cover;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
+            font-family: Arial, sans-serif;
         }
         canvas {
-            background: transparent;
             display: block;
         }
-        #overlay {
+        #leaderboard {
             position: absolute;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.7);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 24px;
+            top: 10px;
+            right: 10px;
+            background: rgba(255, 255, 255, 0.7);
+            padding: 10px;
+            border-radius: 5px;
+            width: 200px;
             text-align: center;
-            display: none;
+        }
+        #leaderboard h3 {
+            margin: 0;
+        }
+        #leaderboard ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        #leaderboard li {
+            margin: 5px 0;
         }
     </style>
 </head>
 <body>
-    <canvas id="gameCanvas"></canvas>
-    <div id="overlay">
-        <p>Game Over! Score: <span id="finalScore">0</span></p>
-        <button id="restartGame">Play Again</button>
+    <div id="leaderboard">
+        <h3>Лидеры</h3>
+        <ul id="leaderboard-list"></ul>
     </div>
+    <canvas id="gameCanvas"></canvas>
+
     <script>
+        // Получаем данные пользователя Telegram через tgWebApp
+        const tg = window.Telegram.WebApp;
+
+        // Инициализация игры
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
-        canvas.width = 320;
-        canvas.height = 480;
-        const shoeImg = new Image();
-        shoeImg.src = 'raf_shoe.png';
-        let shoe = { x: 50, y: 150, width: 40, height: 30, dy: 0 };
-        let pipes = [];
-        let gravity = 0.5, lift = -8;
+
+        // Установка размеров холста
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+        canvas.width = width;
+        canvas.height = height;
+
+        // Загрузка изображений
+        const shoeImage = new Image();
+        shoeImage.src = 'raf_shoe.png'; // Изображение кроссовка
+        const backgroundImage = new Image();
+        backgroundImage.src = 'raf_simons_face.jpg'; // Фоновое изображение
+
         let score = 0;
+        let highScore = 0;
+        let gravity = 0.5;
+        let lift = -10;
+        let birdY = height / 2;
+        let velocityY = 0;
+        let pipes = [];
+        let pipeWidth = 60;
+        let pipeGap = 150;
+        let pipeSpeed = 3;
         let gameOver = false;
-        let overlay = document.getElementById('overlay');
-        let finalScoreEl = document.getElementById('finalScore');
-        document.getElementById('restartGame').addEventListener('click', restartGame);
 
-        function drawShoe() {
-            ctx.drawImage(shoeImg, shoe.x, shoe.y, shoe.width, shoe.height);
+        // Загрузка рекордов из localStorage
+        let leaderboard = JSON.parse(localStorage.getItem('leaderboard')) || [];
+
+        // Отображение рекордов
+        function renderLeaderboard() {
+            const leaderboardList = document.getElementById('leaderboard-list');
+            leaderboardList.innerHTML = '';
+            leaderboard.slice(0, 5).forEach((entry, index) => {
+                const li = document.createElement('li');
+                li.textContent = `${index + 1}. ${entry.username}: ${entry.score}`;
+                leaderboardList.appendChild(li);
+            });
         }
 
-        function updateGame() {
-            if (!gameOver) {
-                shoe.dy += gravity;
-                shoe.y += shoe.dy;
-                if (shoe.y + shoe.height > canvas.height) endGame();
-                drawShoe();
-                requestAnimationFrame(updateGame);
+        // Добавление нового рекорда
+        function addScoreToLeaderboard(username, score) {
+            leaderboard.push({ username, score });
+            leaderboard.sort((a, b) => b.score - a.score);
+            leaderboard = leaderboard.slice(0, 10); // Сохраняем только топ-10
+            localStorage.setItem('leaderboard', JSON.stringify(leaderboard));
+            renderLeaderboard();
+        }
+
+        // Обновление экрана
+        function update() {
+            if (gameOver) return;
+
+            // Применение гравитации
+            velocityY += gravity;
+            birdY += velocityY;
+
+            // Проверка столкновения с землей или небом
+            if (birdY >= height || birdY <= 0) {
+                gameOver = true;
+                addScoreToLeaderboard(tg.initDataUnsafe.user.username, score);
+                alert(`Игра окончена! Ваш счет: ${score}`);
+                resetGame();
+                return;
             }
+
+            // Обновление труб
+            for (let i = 0; i < pipes.length; i++) {
+                let pipe = pipes[i];
+                pipe.x -= pipeSpeed;
+
+                // Проверка столкновения
+                if (
+                    birdY < pipe.topHeight && birdY + shoeImage.height > pipe.topHeight - pipeGap &&
+                    birdY + shoeImage.height > pipe.bottomHeight &&
+                    birdY < pipe.bottomHeight + pipeGap &&
+                    birdY + shoeImage.height > pipe.topHeight &&
+                    birdY < pipe.bottomHeight
+                ) {
+                    if (pipe.x + pipeWidth > width / 2 - shoeImage.width / 2 && pipe.x < width / 2 + shoeImage.width / 2) {
+                        gameOver = true;
+                        addScoreToLeaderboard(tg.initDataUnsafe.user.username, score);
+                        alert(`Игра окончена! Ваш счет: ${score}`);
+                        resetGame();
+                        return;
+                    }
+                }
+
+                // Удаление труб за пределами экрана
+                if (pipe.x + pipeWidth < 0) {
+                    pipes.splice(i, 1);
+                    i--;
+                    score++;
+                }
+            }
+
+            // Добавление новых труб
+            if (Math.random() < 0.02) {
+                const topHeight = Math.random() * (height - pipeGap - 50) + 50;
+                const bottomHeight = height - topHeight - pipeGap;
+                pipes.push({
+                    x: width,
+                    topHeight,
+                    bottomHeight
+                });
+            }
+
+            requestAnimationFrame(update);
         }
 
-        function endGame() {
-            gameOver = true;
-            finalScoreEl.textContent = score;
-            overlay.style.display = 'flex';
-            autoSubmitScore();
+        // Отрисовка элементов
+        function draw() {
+            ctx.clearRect(0, 0, width, height);
+
+            // Рисуем фон
+            ctx.drawImage(backgroundImage, 0, 0, width, height);
+
+            // Рисуем трубы
+            for (let pipe of pipes) {
+                ctx.fillStyle = 'green';
+                ctx.fillRect(pipe.x, 0, pipeWidth, pipe.topHeight);
+                ctx.fillRect(pipe.x, height - pipe.bottomHeight, pipeWidth, pipe.bottomHeight);
+            }
+
+            // Рисуем кроссовок
+            ctx.drawImage(shoeImage, width / 2 - shoeImage.width / 2, birdY, shoeImage.width, shoeImage.height);
+
+            // Рисуем счет
+            ctx.fillStyle = 'black';
+            ctx.font = '24px Arial';
+            ctx.fillText(`Счет: ${score}`, 10, 30);
+
+            requestAnimationFrame(draw);
         }
 
-        function restartGame() {
-            shoe.y = 150;
-            shoe.dy = 0;
+        // Сброс игры
+        function resetGame() {
             score = 0;
+            velocityY = 0;
+            birdY = height / 2;
+            pipes = [];
             gameOver = false;
-            overlay.style.display = 'none';
-            updateGame();
         }
 
-        function autoSubmitScore() {
-            let playerName = "Anonymous";
-            if (window.Telegram && Telegram.WebApp && Telegram.WebApp.initDataUnsafe && Telegram.WebApp.initDataUnsafe.user) {
-                const user = Telegram.WebApp.initDataUnsafe.user;
-                playerName = user.first_name + (user.last_name ? " " + user.last_name : "");
-            }
-            fetch('http://localhost:3000/submit-score', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: playerName, score: score })
-            })
-            .then(response => response.json())
-            .catch(err => console.error("Ошибка при отправке результата:", err));
-        }
-
-        document.addEventListener('keydown', () => {
-            if (!gameOver) shoe.dy = lift;
-        });
+        // Обработка кликов
         canvas.addEventListener('click', () => {
-            if (!gameOver) shoe.dy = lift;
+            if (!gameOver) {
+                velocityY = lift;
+            }
         });
 
-        updateGame();
+        // Запуск игры
+        shoeImage.onload = backgroundImage.onload = () => {
+            resetGame();
+            update();
+            draw();
+            renderLeaderboard();
+        };
     </script>
 </body>
 </html>
