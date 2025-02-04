@@ -222,6 +222,7 @@
 
         // Запуск игры
         function startGame() {
+            console.log('Игра запущена!');
             document.getElementById('loading').style.display = 'none'; // Скрываем загрузку
             resetGame();
             update();
@@ -230,14 +231,35 @@
         }
 
         // Ждем загрузки изображений
-        Promise.all([new Promise(resolve => shoeImage.onload = resolve), new Promise(resolve => backgroundImage.onload = resolve)])
-            .then(() => {
-                startGame();
+        Promise.all([
+            new Promise(resolve => {
+                shoeImage.onload = () => {
+                    console.log('Кроссовок загружен');
+                    resolve();
+                };
+                shoeImage.onerror = () => {
+                    console.error('Ошибка загрузки кроссовка');
+                    alert('Не удалось загрузить изображение кроссовка. Проверьте путь к файлу.');
+                };
+            }),
+            new Promise(resolve => {
+                backgroundImage.onload = () => {
+                    console.log('Фон загружен');
+                    resolve();
+                };
+                backgroundImage.onerror = () => {
+                    console.error('Ошибка загрузки фона');
+                    alert('Не удалось загрузить фоновое изображение. Проверьте путь к файлу.');
+                };
             })
-            .catch(error => {
-                console.error('Ошибка загрузки изображений:', error);
-                alert('Не удалось загрузить изображения. Проверьте путь к файлам.');
-            });
+        ])
+        .then(() => {
+            startGame();
+        })
+        .catch(error => {
+            console.error('Ошибка:', error);
+            alert('Произошла ошибка при загрузке ресурсов.');
+        });
     </script>
 </body>
 </html>
