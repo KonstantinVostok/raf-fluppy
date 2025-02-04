@@ -59,12 +59,11 @@
 
         // Загрузка изображений
         const shoeImage = new Image();
-        shoeImage.src = 'raf_shoe.png'; // Изображение кроссовка
+        shoeImage.src = 'raf_simons_ozweego.png'; // Изображение кроссовка
         const backgroundImage = new Image();
-        backgroundImage.src = 'raf_simons_face.jpg'; // Фоновое изображение
+        backgroundImage.src = 'raf_simons_background.jpg'; // Фоновое изображение
 
         let score = 0;
-        let highScore = 0;
         let gravity = 0.5;
         let lift = -10;
         let birdY = height / 2;
@@ -81,21 +80,28 @@
         // Отображение рекордов
         function renderLeaderboard() {
             const leaderboardList = document.getElementById('leaderboard-list');
-            leaderboardList.innerHTML = '';
-            leaderboard.slice(0, 5).forEach((entry, index) => {
+            leaderboardList.innerHTML = ''; // Очищаем список перед обновлением
+
+            if (leaderboard.length === 0) {
                 const li = document.createElement('li');
-                li.textContent = `${index + 1}. ${entry.username}: ${entry.score}`;
+                li.textContent = 'Нет данных';
                 leaderboardList.appendChild(li);
-            });
+            } else {
+                leaderboard.slice(0, 5).forEach((entry, index) => {
+                    const li = document.createElement('li');
+                    li.textContent = `${index + 1}. ${entry.username}: ${entry.score}`;
+                    leaderboardList.appendChild(li);
+                });
+            }
         }
 
         // Добавление нового рекорда
         function addScoreToLeaderboard(username, score) {
             leaderboard.push({ username, score });
-            leaderboard.sort((a, b) => b.score - a.score);
+            leaderboard.sort((a, b) => b.score - a.score); // Сортировка по убыванию
             leaderboard = leaderboard.slice(0, 10); // Сохраняем только топ-10
-            localStorage.setItem('leaderboard', JSON.stringify(leaderboard));
-            renderLeaderboard();
+            localStorage.setItem('leaderboard', JSON.stringify(leaderboard)); // Сохраняем в localStorage
+            renderLeaderboard(); // Обновляем отображение таблицы
         }
 
         // Обновление экрана
@@ -205,7 +211,7 @@
             resetGame();
             update();
             draw();
-            renderLeaderboard();
+            renderLeaderboard(); // Первоначальное отображение таблицы лидеров
         };
     </script>
 </body>
