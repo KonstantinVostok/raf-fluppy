@@ -1,300 +1,114 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Flappy Sneaker</title>
-  <style>
-    /* Общие стили */
-    body {
-      margin: 0;
-      padding: 0;
-      background-color: #000;
-      font-family: Arial, sans-serif;
-      color: #fff;
-      text-align: center;
-      position: relative;
-    }
-    #gameCanvas {
-      background: #000;
-      display: block;
-      margin: 20px auto;
-      border: 1px solid #fff;
-    }
-    /* Оверлей при окончании игры */
-    #overlay {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.8);
-      display: none;
-      justify-content: center;
-      align-items: center;
-      flex-direction: column;
-      z-index: 10;
-    }
-    #overlay.active {
-      display: flex;
-    }
-    #overlay input {
-      padding: 8px;
-      margin: 10px;
-      font-size: 16px;
-    }
-    #overlay button {
-      padding: 10px 20px;
-      font-size: 16px;
-      margin: 5px;
-      cursor: pointer;
-    }
-    /* Таблица рекордов */
-    #scoreboard {
-      margin: 20px auto;
-      width: 90%;
-      max-width: 400px;
-      text-align: left;
-    }
-    #scoreboard table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-    #scoreboard th, #scoreboard td {
-      padding: 8px;
-      border: 1px solid #fff;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flappy Shoe</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: url('raf_simons_face.jpg') no-repeat center center/cover;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        canvas {
+            background: transparent;
+            display: block;
+        }
+        #overlay {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 24px;
+            text-align: center;
+            display: none;
+        }
+    </style>
 </head>
 <body>
-  <canvas id="gameCanvas" width="320" height="480"></canvas>
-
-  <!-- Оверлей, появляющийся при окончании игры -->
-  <div id="overlay">
-    <h2>Игра окончена</h2>
-    <p>Ваш счёт: <span id="finalScore"></span></p>
-    <input type="text" id="playerName" placeholder="Ваше имя">
-    <div>
-      <button id="submitScore">Отправить результат</button>
-      <button id="restartGame">Начать заново</button>
+    <canvas id="gameCanvas"></canvas>
+    <div id="overlay">
+        <p>Game Over! Score: <span id="finalScore">0</span></p>
+        <button id="restartGame">Play Again</button>
     </div>
-  </div>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = 320;
+        canvas.height = 480;
+        const shoeImg = new Image();
+        shoeImg.src = 'raf_shoe.png';
+        let shoe = { x: 50, y: 150, width: 40, height: 30, dy: 0 };
+        let pipes = [];
+        let gravity = 0.5, lift = -8;
+        let score = 0;
+        let gameOver = false;
+        let overlay = document.getElementById('overlay');
+        let finalScoreEl = document.getElementById('finalScore');
+        document.getElementById('restartGame').addEventListener('click', restartGame);
 
-  <!-- Таблица рекордов -->
-  <div id="scoreboard">
-    <h3>Таблица рекордов</h3>
-    <table>
-      <thead>
-        <tr>
-          <th>Игрок</th>
-          <th>Счёт</th>
-        </tr>
-      </thead>
-      <tbody id="scoreboardBody">
-        <!-- Здесь будут динамически добавляться строки -->
-      </tbody>
-    </table>
-  </div>
-
-  <script>
-    // Инициализация Telegram WebApp (если запущено внутри Telegram)
-    if (window.Telegram && Telegram.WebApp) {
-      Telegram.WebApp.ready();
-    }
-
-    // Получаем элементы
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
-    const overlay = document.getElementById('overlay');
-    const finalScoreEl = document.getElementById('finalScore');
-    const playerNameInput = document.getElementById('playerName');
-    const submitScoreBtn = document.getElementById('submitScore');
-    const restartGameBtn = document.getElementById('restartGame');
-    const scoreboardBody = document.getElementById('scoreboardBody');
-
-    // Загружаем изображения
-    const backgroundImg = new Image();
-    backgroundImg.src = 'raf_simons_face.jpg'; // Фоновое изображение (Рафа Симонс)
-    const sneakerImg = new Image();
-    sneakerImg.src = 'raf_shoe.png'; // Изображение кроссовка
-
-    // Параметры игры
-    let sneaker = {
-      x: 50,
-      y: canvas.height / 2,
-      width: 34,
-      height: 24,
-      velocity: 0,
-      gravity: 0.5,
-      jump: -8
-    };
-
-    let obstacles = [];
-    const obstacleGap = 100;
-    const obstacleWidth = 50;
-    const obstacleFrequency = 90; // каждые 90 кадров
-    let frameCount = 0;
-    let score = 0;
-    let gameOver = false;
-
-    // Обработка клика по канвасу (или нажатие пробела)
-    canvas.addEventListener('click', () => {
-      if (!gameOver) sneaker.velocity = sneaker.jump;
-    });
-    document.addEventListener('keydown', (e) => {
-      if (!gameOver && e.code === 'Space') {
-        sneaker.velocity = sneaker.jump;
-      }
-    });
-
-    // Основной игровой цикл
-    function update() {
-      if (gameOver) return;
-      frameCount++;
-
-      // Создание препятствий
-      if (frameCount % obstacleFrequency === 0) {
-        const gapY = Math.floor(Math.random() * (canvas.height - obstacleGap - 40)) + 20;
-        obstacles.push({ x: canvas.width, gapY: gapY });
-      }
-
-      // Обновляем положение препятствий
-      obstacles.forEach(obs => obs.x -= 2);
-      // Удаляем препятствия, вышедшие за левую границу
-      if (obstacles.length && obstacles[0].x < -obstacleWidth) {
-        obstacles.shift();
-        score++;
-      }
-
-      // Физика кроссовка
-      sneaker.velocity += sneaker.gravity;
-      sneaker.y += sneaker.velocity;
-
-      // Проверка столкновений с препятствиями
-      obstacles.forEach(obs => {
-        if (sneaker.x + sneaker.width > obs.x && sneaker.x < obs.x + obstacleWidth) {
-          if (sneaker.y < obs.gapY || sneaker.y + sneaker.height > obs.gapY + obstacleGap) {
-            endGame();
-          }
+        function drawShoe() {
+            ctx.drawImage(shoeImg, shoe.x, shoe.y, shoe.width, shoe.height);
         }
-      });
 
-      // Проверка выхода за границы экрана
-      if (sneaker.y < 0 || sneaker.y + sneaker.height > canvas.height) {
-        endGame();
-      }
-    }
+        function updateGame() {
+            if (!gameOver) {
+                shoe.dy += gravity;
+                shoe.y += shoe.dy;
+                if (shoe.y + shoe.height > canvas.height) endGame();
+                drawShoe();
+                requestAnimationFrame(updateGame);
+            }
+        }
 
-    function draw() {
-      // Рисуем фон
-      if (backgroundImg.complete) {
-        ctx.drawImage(backgroundImg, 0, 0, canvas.width, canvas.height);
-      } else {
-        ctx.fillStyle = "#70c5ce";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-      }
+        function endGame() {
+            gameOver = true;
+            finalScoreEl.textContent = score;
+            overlay.style.display = 'flex';
+            autoSubmitScore();
+        }
 
-      // Рисуем препятствия (прямоугольниками)
-      ctx.fillStyle = "#000";
-      obstacles.forEach(obs => {
-        // Верхнее препятствие
-        ctx.fillRect(obs.x, 0, obstacleWidth, obs.gapY);
-        // Нижнее препятствие
-        ctx.fillRect(obs.x, obs.gapY + obstacleGap, obstacleWidth, canvas.height - obs.gapY - obstacleGap);
-      });
+        function restartGame() {
+            shoe.y = 150;
+            shoe.dy = 0;
+            score = 0;
+            gameOver = false;
+            overlay.style.display = 'none';
+            updateGame();
+        }
 
-      // Рисуем кроссовок
-      if (sneakerImg.complete) {
-        ctx.drawImage(sneakerImg, sneaker.x, sneaker.y, sneaker.width, sneaker.height);
-      } else {
-        ctx.fillStyle = "#ff0";
-        ctx.fillRect(sneaker.x, sneaker.y, sneaker.width, sneaker.height);
-      }
+        function autoSubmitScore() {
+            let playerName = "Anonymous";
+            if (window.Telegram && Telegram.WebApp && Telegram.WebApp.initDataUnsafe && Telegram.WebApp.initDataUnsafe.user) {
+                const user = Telegram.WebApp.initDataUnsafe.user;
+                playerName = user.first_name + (user.last_name ? " " + user.last_name : "");
+            }
+            fetch('http://localhost:3000/submit-score', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: playerName, score: score })
+            })
+            .then(response => response.json())
+            .catch(err => console.error("Ошибка при отправке результата:", err));
+        }
 
-      // Рисуем текущий счёт
-      ctx.fillStyle = "#fff";
-      ctx.font = "20px Arial";
-      ctx.fillText("Счёт: " + score, 10, 25);
-    }
-
-    function loop() {
-      update();
-      draw();
-      if (!gameOver) {
-        requestAnimationFrame(loop);
-      }
-    }
-
-    function endGame() {
-      gameOver = true;
-      finalScoreEl.textContent = score;
-      overlay.classList.add('active');
-    }
-
-    // Перезапуск игры
-    restartGameBtn.addEventListener('click', () => {
-      resetGame();
-      overlay.classList.remove('active');
-      requestAnimationFrame(loop);
-    });
-
-    function resetGame() {
-      sneaker.y = canvas.height / 2;
-      sneaker.velocity = 0;
-      obstacles = [];
-      frameCount = 0;
-      score = 0;
-      gameOver = false;
-      playerNameInput.value = "";
-    }
-
-    // Отправка результата на сервер
-    submitScoreBtn.addEventListener('click', () => {
-      const playerName = playerNameInput.value.trim() || "Anonymous";
-      fetch('/submit-score', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: playerName, score: score })
-      })
-      .then(response => response.json())
-      .then(data => {
-        updateLeaderboard();
-      })
-      .catch(err => console.error("Ошибка при отправке результата:", err));
-    });
-
-    // Получение и обновление таблицы рекордов
-    function updateLeaderboard() {
-      fetch('/scores')
-      .then(response => response.json())
-      .then(data => {
-        // Очищаем таблицу
-        scoreboardBody.innerHTML = "";
-        // Сортируем по убыванию счёта
-        data.sort((a, b) => b.score - a.score);
-        data.forEach(entry => {
-          const row = document.createElement('tr');
-          const nameCell = document.createElement('td');
-          const scoreCell = document.createElement('td');
-          nameCell.textContent = entry.name;
-          scoreCell.textContent = entry.score;
-          row.appendChild(nameCell);
-          row.appendChild(scoreCell);
-          scoreboardBody.appendChild(row);
+        document.addEventListener('keydown', () => {
+            if (!gameOver) shoe.dy = lift;
         });
-      })
-      .catch(err => console.error("Ошибка при получении рекордов:", err));
-    }
+        canvas.addEventListener('click', () => {
+            if (!gameOver) shoe.dy = lift;
+        });
 
-    // Обновляем таблицу рекордов при загрузке страницы
-    updateLeaderboard();
-
-    // Запуск игрового цикла после загрузки изображений
-    backgroundImg.onload = () => {
-      sneakerImg.onload = () => {
-        requestAnimationFrame(loop);
-      }
-    };
-  </script>
+        updateGame();
+    </script>
 </body>
 </html>
-
