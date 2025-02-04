@@ -1,1 +1,228 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Raf Simons Flappy Shoe</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: black;
+        }
+        #gameCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+        #startButton {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 15px 30px;
+            font-size: 24px;
+            background: #ff0000;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: Arial, sans-serif;
+        }
+        #score {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            color: white;
+            font-size: 24px;
+            font-family: Arial, sans-serif;
+            z-index: 100;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    <div id="score">0</div>
+    <button id="startButton">START</button>
 
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const startButton = document.getElementById('startButton');
+        const scoreElement = document.getElementById('score');
+
+        // Задайте свои URL изображений здесь
+        const images = {
+            background: 'raf_simons_face.jpg',
+            shoe: 'raf_shoe.png',
+            pipe: 'https://example.com/pipe.png'
+        };
+
+        let game = {
+            isRunning: false,
+            player: {
+                x: 100,
+                y: 300,
+                velocity: 0,
+                gravity: 0.5,
+                jump: -8
+            },
+            pipes: [],
+            pipeWidth: 60,
+            pipeGap: 150,
+            pipeInterval: 2000,
+            lastPipeTime: 0,
+            score: 0
+        };
+
+        // Загрузка изображений
+        const bgImage = new Image();
+        bgImage.src = images.background;
+        
+        const shoeImage = new Image();
+        shoeImage.src = images.shoe;
+        
+        const pipeImage = new Image();
+        pipeImage.src = images.pipe;
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+
+        function drawPlayer() {
+            if (shoeImage.complete) {
+                ctx.drawImage(shoeImage, game.player.x, game.player.y, 60, 40);
+            }
+        }
+
+        function drawPipes() {
+            game.pipes.forEach(pipe => {
+                if (pipeImage.complete) {
+                    // Верхняя труба
+                    ctx.drawImage(pipeImage, pipe.x, 0, game.pipeWidth, pipe.top);
+                    // Нижняя труба
+                    ctx.drawImage(pipeImage, pipe.x, pipe.top + game.pipeGap, 
+                                game.pipeWidth, canvas.height - (pipe.top + game.pipeGap));
+                }
+            });
+        }
+
+        function updateGame() {
+            if (!game.isRunning) return;
+
+            // Движение игрока
+            game.player.velocity += game.player.gravity;
+            game.player.y += game.player.velocity;
+
+            // Генерация труб
+            if (Date.now() - game.lastPipeTime > game.pipeInterval) {
+                const minHeight = 100;
+                const maxHeight = canvas.height - game.pipeGap - minHeight;
+                const topHeight = Math.random() * (maxHeight - minHeight) + minHeight;
+                
+                game.pipes.push({
+                    x: canvas.width,
+                    top: topHeight
+                });
+                game.lastPipeTime = Date.now();
+            }
+
+            // Обновление позиций труб
+            game.pipes.forEach(pipe => {
+                pipe.x -= 2;
+            });
+
+            // Удаление труб за пределами экрана
+            game.pipes = game.pipes.filter(pipe => pipe.x + game.pipeWidth > 0);
+
+            // Проверка столкновений
+            if (checkCollision()) {
+                gameOver();
+            }
+
+            // Обновление счета
+            game.score++;
+            scoreElement.textContent = Math.floor(game.score / 50);
+
+            requestAnimationFrame(updateGame);
+        }
+
+        function checkCollision() {
+            // Границы экрана
+            if (game.player.y < 0 || game.player.y + 40 > canvas.height) return true;
+
+            // Проверка столкновений с трубами
+            return game.pipes.some(pipe => {
+                return (game.player.x < pipe.x + game.pipeWidth &&
+                        game.player.x + 60 > pipe.x &&
+                        (game.player.y < pipe.top ||
+                         game.player.y + 40 > pipe.top + game.pipeGap));
+            });
+        }
+
+        function gameOver() {
+            game.isRunning = false;
+            startButton.style.display = 'block';
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Рисование фона
+            if (bgImage.complete) {
+                ctx.drawImage(bgImage, 0, 0, canvas.width, canvas.height);
+            }
+            
+            drawPipes();
+            drawPlayer();
+            
+            if (game.isRunning) {
+                requestAnimationFrame(draw);
+            }
+        }
+
+        function jump() {
+            if (game.isRunning) {
+                game.player.velocity = game.player.jump;
+            }
+        }
+
+        function startGame() {
+            game = {
+                isRunning: true,
+                player: {
+                    x: 100,
+                    y: canvas.height / 2,
+                    velocity: 0,
+                    gravity: 0.5,
+                    jump: -8
+                },
+                pipes: [],
+                pipeWidth: 60,
+                pipeGap: 150,
+                pipeInterval: 2000,
+                lastPipeTime: Date.now(),
+                score: 0
+            };
+            startButton.style.display = 'none';
+            scoreElement.textContent = '0';
+            updateGame();
+            draw();
+        }
+
+        // Обработчики событий
+        startButton.addEventListener('click', startGame);
+        canvas.addEventListener('mousedown', jump);
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            jump();
+        });
+
+        // Инициализация
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+    </script>
+</body>
+</html>
