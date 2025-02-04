@@ -223,6 +223,35 @@
         // Инициализация
         resizeCanvas();
         window.addEventListener('resize', resizeCanvas);
+        function gameOver() {
+    game.isRunning = false;
+    startButton.style.display = 'block';
+    const finalScore = Math.floor(game.score / 50);
+
+    // Проверяем, что мы работаем внутри Telegram WebApp
+    if (window.Telegram && Telegram.WebApp) {
+        Telegram.WebApp.setGameScore(finalScore)
+            .then(response => {
+                console.log("Score updated!", response);
+            })
+            .catch(err => {
+                console.error("Error updating score", err);
+            });
+    }
+    
+    // Дополнительно можно запросить таблицу рекордов
+    if (window.Telegram && Telegram.WebApp) {
+        Telegram.WebApp.getGameHighScores()
+            .then(highScores => {
+                console.log("High scores:", highScores);
+                // Здесь можно реализовать отображение таблицы рекордов пользователю
+            })
+            .catch(err => {
+                console.error("Error fetching high scores", err);
+            });
+    }
+}
+
     </script>
 </body>
 </html>
